@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Симулятор жизни утки</title>
+  <title>Экшен-путешествие утки</title>
   <style>
     html, body {
       margin: 0;
@@ -31,7 +31,7 @@
 </head>
 <body>
   <div id="game-container"></div>
-  <div class="hint">Управление: стрелки / WASD • Пропуск диалога: пробел</div>
+  <div class="hint">Управление: стрелки / WASD</div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
   <script>
     const config = {
@@ -51,10 +51,8 @@
     let duck;
     let cursors;
     let stepIndex = 0;
-    let infoText;
     let titleText;
     let objectiveText;
-    let dialogueText;
     let itemsGroup;
     let hazardGroup;
     let targetZone;
@@ -62,131 +60,177 @@
     let progressText;
     let stepTimer = 0;
     let rescueFound = false;
-    let resting = false;
     let timerText;
+    let backgroundLayer;
 
     const scenario = [
       {
-        title: '1. Рождение',
-        description: 'Уточка вылупляется из яйца и видит мир впервые.',
-        type: 'dialogue',
-        lines: [
-          'Мама-утка: «Добро пожаловать в мир, малыш!»',
-          'Уточка: «Кря? Всё такое большое...»'
-        ]
-      },
-      {
-        title: '2. Первые шаги',
-        description: 'Доберись до мамы, чтобы потренироваться ходить.',
+        title: '1. Вспышка бури',
+        description: 'Рывок к укрытию: доберись до высокого камня.',
         type: 'reach',
-        target: { x: 180, y: 120 }
+        target: { x: 160, y: 120 },
+        mood: 0x13263d
       },
       {
-        title: '3. Путь к пруду',
-        description: 'Следуй за мамой и дойди до берега пруда.',
-        type: 'reach',
-        target: { x: 820, y: 420 }
-      },
-      {
-        title: '4. Учимся плавать',
-        description: 'Проплыви через три кольца на воде.',
-        type: 'rings',
-        rings: 3
-      },
-      {
-        title: '5. Завтрак: червячки',
-        description: 'Собери 5 червячков.',
-        type: 'collect',
-        itemKey: 'worm',
-        count: 5
-      },
-      {
-        title: '6. Лиса рядом!',
-        description: 'Избегай лисы 10 секунд.',
+        title: '2. Турбулентность',
+        description: 'Выдержи шторм: уклоняйся от вихрей 8 секунд.',
         type: 'dodge',
-        hazardKey: 'fox',
-        duration: 10
+        hazardKey: 'gust',
+        duration: 8,
+        hazards: 3,
+        mood: 0x0c1a2c
       },
       {
-        title: '7. Дождик',
-        description: 'Спрячься под деревом.',
-        type: 'reach',
-        target: { x: 140, y: 420 }
+        title: '3. Прыжки по волнорезам',
+        description: 'Пройди через четыре кольца над водой.',
+        type: 'rings',
+        rings: 4,
+        mood: 0x112b3f
       },
       {
-        title: '8. Дети и хлеб',
-        description: 'Собери 3 кусочка хлеба.',
+        title: '4. Энергия течения',
+        description: 'Собери 6 энергетических капсул.',
         type: 'collect',
-        itemKey: 'bread',
-        count: 3
+        itemKey: 'energy',
+        count: 6,
+        mood: 0x10243a
       },
       {
-        title: '9. Полуденная сиеста',
-        description: 'Отдохни на кочке 5 секунд.',
-        type: 'wait',
-        duration: 5,
-        target: { x: 480, y: 300 }
+        title: '5. Охота в небе',
+        description: 'Переживи налёт хищника 9 секунд.',
+        type: 'dodge',
+        hazardKey: 'hawk',
+        duration: 9,
+        hazards: 2,
+        mood: 0x1a2033
       },
       {
-        title: '10. План перелёта',
-        description: 'Выбери: остаться или готовиться к перелёту.',
-        type: 'choice',
-        options: ['Остаться', 'Готовиться к перелёту']
-      },
-      {
-        title: '11. Опасная дорога',
-        description: 'Перейди дорогу, избегая машин.',
-        type: 'road',
-        duration: 12
-      },
-      {
-        title: '12. Ночная вода',
-        description: 'Доберись до светящихся звёзд на воде.',
+        title: '6. Всплеск скорости',
+        description: 'Доберись до маяка, пока не истекло время.',
         type: 'reach',
-        target: { x: 820, y: 100 }
+        target: { x: 820, y: 420 },
+        mood: 0x0e2435
       },
       {
-        title: '13. Потерянный утёнок',
-        description: 'Найди и приведи утёнка к маме.',
-        type: 'rescue'
+        title: '7. Прорыв через плотину',
+        description: 'Пересекай поток и уклоняйся от катеров 12 секунд.',
+        type: 'road',
+        duration: 12,
+        hazardKey: 'boat',
+        mood: 0x0b1a2a
       },
       {
-        title: '14. Строим гнездо',
-        description: 'Собери 4 пучка камыша.',
+        title: '8. Ночная разведка',
+        description: 'Собери 4 светляка, чтобы найти путь.',
+        type: 'collect',
+        itemKey: 'spark',
+        count: 4,
+        mood: 0x0a1626
+      },
+      {
+        title: '9. Потерянный утёнок',
+        description: 'Найди утёнка и верни к матери.',
+        type: 'rescue',
+        mood: 0x111a2a
+      },
+      {
+        title: '10. Укрепляем гнездо',
+        description: 'Собери 5 пучков камыша под напором ветра.',
         type: 'collect',
         itemKey: 'reeds',
-        count: 4
+        count: 5,
+        mood: 0x0f2030
       },
       {
-        title: '15. Праздник на озере',
-        description: 'Танцуй, чтобы закончить историю!',
-        type: 'finale'
+        title: '11. Финальный вихрь',
+        description: 'Вращайся и держи позицию до финального всплеска.',
+        type: 'finale',
+        mood: 0x14263b
       }
     ];
 
     function preload() {
-      this.load.image('duck', 'https://labs.phaser.io/assets/sprites/duck.png');
-      this.load.image('mom', 'https://labs.phaser.io/assets/sprites/duck.png');
-      this.load.image('pond', 'https://labs.phaser.io/assets/skies/space3.png');
-      this.load.image('tree', 'https://labs.phaser.io/assets/sprites/tree.png');
-      this.load.image('worm', 'https://labs.phaser.io/assets/sprites/banana.png');
-      this.load.image('bread', 'https://labs.phaser.io/assets/sprites/bread.png');
-      this.load.image('fox', 'https://labs.phaser.io/assets/sprites/fox.png');
-      this.load.image('ring', 'https://labs.phaser.io/assets/sprites/ring.png');
-      this.load.image('reeds', 'https://labs.phaser.io/assets/sprites/leaf.png');
-      this.load.image('car', 'https://labs.phaser.io/assets/sprites/car90.png');
-      this.load.image('star', 'https://labs.phaser.io/assets/sprites/star.png');
-      this.load.image('duckling', 'https://labs.phaser.io/assets/sprites/duck.png');
+      createTexture(this, 'duck', 50, 38, (gfx) => {
+        gfx.fillStyle(0xffd166, 1);
+        gfx.fillCircle(20, 20, 16);
+        gfx.fillCircle(34, 16, 10);
+        gfx.fillStyle(0xff9f1c, 1);
+        gfx.fillTriangle(42, 18, 54, 22, 42, 26);
+        gfx.fillStyle(0x1b1b1b, 1);
+        gfx.fillCircle(36, 14, 2);
+      });
+      createTexture(this, 'mom', 60, 46, (gfx) => {
+        gfx.fillStyle(0xffe19c, 1);
+        gfx.fillCircle(24, 24, 18);
+        gfx.fillCircle(40, 18, 12);
+        gfx.fillStyle(0xffb347, 1);
+        gfx.fillTriangle(46, 20, 58, 24, 46, 28);
+        gfx.fillStyle(0x1b1b1b, 1);
+        gfx.fillCircle(42, 16, 2);
+      });
+      createTexture(this, 'ring', 54, 54, (gfx) => {
+        gfx.lineStyle(6, 0x7bdff2, 1);
+        gfx.strokeCircle(27, 27, 20);
+      });
+      createTexture(this, 'energy', 36, 36, (gfx) => {
+        gfx.fillStyle(0x66e1ff, 1);
+        gfx.fillTriangle(18, 2, 34, 18, 18, 34);
+        gfx.fillTriangle(18, 2, 2, 18, 18, 34);
+        gfx.lineStyle(2, 0xffffff, 0.8);
+        gfx.strokeTriangle(18, 2, 34, 18, 18, 34);
+        gfx.strokeTriangle(18, 2, 2, 18, 18, 34);
+      });
+      createTexture(this, 'hawk', 44, 34, (gfx) => {
+        gfx.fillStyle(0xff6b6b, 1);
+        gfx.fillTriangle(4, 10, 40, 2, 24, 18);
+        gfx.fillTriangle(4, 24, 40, 32, 24, 16);
+        gfx.fillStyle(0x1b1b1b, 1);
+        gfx.fillCircle(30, 16, 2);
+      });
+      createTexture(this, 'gust', 48, 48, (gfx) => {
+        gfx.lineStyle(4, 0xb3f5ff, 0.8);
+        gfx.strokeCircle(24, 24, 18);
+        gfx.strokeCircle(24, 24, 10);
+      });
+      createTexture(this, 'reeds', 34, 50, (gfx) => {
+        gfx.fillStyle(0x6bcf6b, 1);
+        gfx.fillRect(14, 6, 6, 36);
+        gfx.fillRect(6, 10, 6, 30);
+        gfx.fillRect(22, 10, 6, 30);
+        gfx.fillStyle(0x4a9f4a, 1);
+        gfx.fillCircle(17, 6, 6);
+      });
+      createTexture(this, 'boat', 60, 30, (gfx) => {
+        gfx.fillStyle(0xff9f1c, 1);
+        gfx.fillRect(6, 10, 48, 12);
+        gfx.fillStyle(0x273043, 1);
+        gfx.fillRect(18, 4, 16, 8);
+      });
+      createTexture(this, 'spark', 30, 30, (gfx) => {
+        gfx.fillStyle(0xfff3a0, 1);
+        gfx.fillCircle(15, 15, 8);
+        gfx.lineStyle(2, 0xfff9d9, 0.9);
+        gfx.strokeCircle(15, 15, 12);
+      });
+      createTexture(this, 'duckling', 34, 26, (gfx) => {
+        gfx.fillStyle(0x9ad1ff, 1);
+        gfx.fillCircle(14, 14, 12);
+        gfx.fillCircle(24, 10, 8);
+        gfx.fillStyle(0x7fb2ff, 1);
+        gfx.fillTriangle(26, 12, 34, 15, 26, 18);
+        gfx.fillStyle(0x1b1b1b, 1);
+        gfx.fillCircle(24, 8, 2);
+      });
     }
 
     function create() {
-      this.add.image(480, 270, 'pond').setAlpha(0.35).setScale(1.2);
+      backgroundLayer = this.add.rectangle(480, 270, 960, 540, 0x0b1a2a).setAlpha(1);
+      this.add.rectangle(480, 480, 960, 120, 0x0f2438).setAlpha(0.8);
 
-      duck = this.physics.add.sprite(120, 300, 'duck').setScale(0.6);
+      duck = this.physics.add.sprite(120, 300, 'duck').setScale(0.8);
       duck.setCollideWorldBounds(true);
 
-      const mom = this.add.image(160, 100, 'mom').setScale(0.8);
-      mom.setTint(0xffd35c);
+      const mom = this.add.image(160, 100, 'mom').setScale(0.9);
       mom.setAlpha(0.9);
       mom.setName('mom');
 
@@ -195,12 +239,11 @@
 
       titleText = this.add.text(24, 16, '', { fontSize: '22px', fontStyle: 'bold' });
       objectiveText = this.add.text(24, 48, '', { fontSize: '16px', color: '#dfe7ff' });
-      dialogueText = this.add.text(24, 80, '', { fontSize: '18px', color: '#ffeec7', wordWrap: { width: 920 } });
       progressText = this.add.text(24, 500, '', { fontSize: '16px', color: '#c0eaff' });
       timerText = this.add.text(800, 16, '', { fontSize: '18px', color: '#ffdf93' });
 
       const scenarioList = scenario.map(step => step.title).join('\n');
-      scenarioListText = this.add.text(720, 120, `Сценарий:\n${scenarioList}`,
+      scenarioListText = this.add.text(720, 120, `Сцены:\n${scenarioList}`,
         { fontSize: '14px', color: '#c6e1ff', align: 'left', wordWrap: { width: 220 } })
         .setAlpha(0.85);
 
@@ -210,20 +253,11 @@
       this.physics.add.overlap(duck, itemsGroup, handleCollect, null, this);
       this.physics.add.overlap(duck, hazardGroup, handleHazard, null, this);
 
-      this.input.keyboard.on('keydown-SPACE', () => {
-        if (scenario[stepIndex].type === 'dialogue') {
-          nextStep.call(this);
-        }
-        if (scenario[stepIndex].type === 'finale') {
-          nextStep.call(this);
-        }
-      });
-
       setupStep.call(this, 0);
     }
 
     function update(_, delta) {
-      const speed = 180;
+      const speed = 200;
       duck.body.setVelocity(0);
       const keys = cursors;
       if (keys.left.isDown || this.input.keyboard.keys[65]?.isDown) {
@@ -246,18 +280,6 @@
         }
       }
 
-      if (scenario[stepIndex].type === 'wait') {
-        resting = Phaser.Math.Distance.Between(duck.x, duck.y, targetZone.x, targetZone.y) < 45;
-        if (resting) {
-          stepTimer -= delta / 1000;
-          timerText.setText(`⏱ ${Math.ceil(stepTimer)}с`);
-          if (stepTimer <= 0) {
-            timerText.setText('');
-            nextStep.call(this);
-          }
-        }
-      }
-
       if (scenario[stepIndex].type === 'reach' && targetZone) {
         const distance = Phaser.Math.Distance.Between(duck.x, duck.y, targetZone.x, targetZone.y);
         if (distance < 40) {
@@ -267,16 +289,6 @@
 
       if (scenario[stepIndex].type === 'rings' && itemsGroup.countActive(true) === 0) {
         nextStep.call(this);
-      }
-
-      if (scenario[stepIndex].type === 'choice') {
-        const one = this.input.keyboard.keys[49]?.isDown; // 1
-        const two = this.input.keyboard.keys[50]?.isDown; // 2
-        if (one || two) {
-          const choice = one ? scenario[stepIndex].options[0] : scenario[stepIndex].options[1];
-          dialogueText.setText(`Ты решил: ${choice}.`);
-          this.time.delayedCall(800, () => nextStep.call(this));
-        }
       }
 
       if (scenario[stepIndex].type === 'rescue' && rescueFound && targetZone) {
@@ -293,9 +305,9 @@
       }
 
       if (scenario[stepIndex].type === 'road') {
-        hazardGroup.getChildren().forEach(car => {
-          if (car.x > 1100) {
-            car.x = -200;
+        hazardGroup.getChildren().forEach(boat => {
+          if (boat.x > 1100) {
+            boat.x = -200;
           }
         });
       }
@@ -305,12 +317,11 @@
       const step = scenario[index];
       stepIndex = index;
       clearStep.call(this);
-      resting = false;
 
       titleText.setText(step.title);
       objectiveText.setText(step.description);
-      dialogueText.setText(step.lines ? step.lines.join('\n') : '');
       progressText.setText(`Прогресс: ${index + 1} / ${scenario.length}`);
+      backgroundLayer.setFillStyle(step.mood ?? 0x0b1a2a, 1);
 
       if (step.type === 'reach') {
         targetZone = this.add.circle(step.target.x, step.target.y, 32, 0x7bdff2, 0.35);
@@ -326,7 +337,7 @@
 
       if (step.type === 'collect') {
         for (let i = 0; i < step.count; i++) {
-          const item = itemsGroup.create(200 + i * 120, 200 + (i % 2) * 120, step.itemKey).setScale(0.5);
+          const item = itemsGroup.create(200 + i * 120, 200 + (i % 2) * 120, step.itemKey).setScale(0.6);
           item.setData('type', 'collect');
         }
       }
@@ -334,43 +345,35 @@
       if (step.type === 'dodge') {
         stepTimer = step.duration;
         timerText.setText(`⏱ ${step.duration}с`);
-        const fox = hazardGroup.create(480, 260, step.hazardKey).setScale(0.7);
-        fox.setVelocity(120, 90);
-        fox.setCollideWorldBounds(true);
-        fox.setBounce(1);
-      }
-
-      if (step.type === 'wait') {
-        stepTimer = step.duration;
-        timerText.setText(`⏱ ${step.duration}с`);
-        targetZone = this.add.circle(step.target.x, step.target.y, 40, 0xfff2aa, 0.3);
-      }
-
-      if (step.type === 'choice') {
-        dialogueText.setText('Нажми 1 или 2 для выбора.\n1) Остаться\n2) Готовиться к перелёту');
+        const hazards = step.hazards ?? 1;
+        for (let i = 0; i < hazards; i++) {
+          const hazard = hazardGroup.create(300 + i * 160, 200 + i * 80, step.hazardKey).setScale(0.8);
+          hazard.setVelocity(120 + i * 40, 90 + i * 30);
+          hazard.setCollideWorldBounds(true);
+          hazard.setBounce(1);
+        }
       }
 
       if (step.type === 'road') {
         stepTimer = step.duration;
         timerText.setText(`⏱ ${step.duration}с`);
         for (let i = 0; i < 3; i++) {
-          const car = hazardGroup.create(-200 - i * 250, 120 + i * 140, 'car').setScale(0.6);
-          car.setVelocity(200 + i * 40, 0);
-          car.setImmovable(true);
+          const boat = hazardGroup.create(-200 - i * 250, 120 + i * 140, step.hazardKey ?? 'boat').setScale(0.8);
+          boat.setVelocity(220 + i * 40, 0);
+          boat.setImmovable(true);
         }
       }
 
       if (step.type === 'rescue') {
         rescueFound = false;
-        const duckling = itemsGroup.create(720, 80, 'duckling').setScale(0.4);
-        duckling.setTint(0x9ad1ff);
+        const duckling = itemsGroup.create(720, 80, 'duckling').setScale(0.6);
         duckling.setData('type', 'rescue');
         targetZone = this.add.circle(140, 100, 32, 0x7be495, 0.35);
         this.add.text(100, 60, 'Мама ждёт', { fontSize: '12px', color: '#ffffff' });
       }
 
       if (step.type === 'finale') {
-        dialogueText.setText('Ты прожил день насыщенно! Нажми пробел, чтобы увидеть титры.');
+        timerText.setText('Финал!');
       }
     }
 
@@ -394,14 +397,14 @@
       if (scenario[stepIndex].type === 'rescue' && item.getData('type') === 'rescue') {
         item.destroy();
         rescueFound = true;
-        dialogueText.setText('Ты нашёл утёнка! Вернись к маме.');
+        objectiveText.setText('Ты нашёл утёнка! Вернись к маме.');
       }
     }
 
     function handleHazard(_, hazard) {
       if (scenario[stepIndex].type === 'dodge' || scenario[stepIndex].type === 'road') {
         hazard.setTint(0xff6b6b);
-        dialogueText.setText('Ой! Будь осторожнее. Попробуй ещё раз.');
+        objectiveText.setText('Удар! Вернись в ритм и попробуй ещё раз.');
         setupStep.call(this, stepIndex);
       }
     }
@@ -412,9 +415,15 @@
       } else {
         titleText.setText('История завершена!');
         objectiveText.setText('Спасибо за игру.');
-        dialogueText.setText('');
         progressText.setText('');
       }
+    }
+
+    function createTexture(scene, key, width, height, draw) {
+      const gfx = scene.make.graphics({ x: 0, y: 0, add: false });
+      draw(gfx);
+      gfx.generateTexture(key, width, height);
+      gfx.destroy();
     }
   </script>
 </body>
