@@ -12,6 +12,8 @@
       color: #ffffff;
       font-family: "Segoe UI", Tahoma, sans-serif;
       height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
     }
     #game-container {
       width: 100vw;
@@ -27,11 +29,65 @@
       border-radius: 8px;
       font-size: 14px;
     }
+    #mobile-controls {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      display: none;
+      grid-template-areas:
+        ". up ."
+        "left . right"
+        ". down .";
+      gap: 8px;
+      z-index: 5;
+      user-select: none;
+      touch-action: none;
+    }
+    #mobile-controls button {
+      width: 58px;
+      height: 58px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(17, 30, 48, 0.8);
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 600;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+    #mobile-controls button:active {
+      background: rgba(58, 88, 132, 0.9);
+    }
+    #mobile-controls .up { grid-area: up; }
+    #mobile-controls .down { grid-area: down; }
+    #mobile-controls .left { grid-area: left; }
+    #mobile-controls .right { grid-area: right; }
+    @media (orientation: portrait) {
+      html, body {
+        overflow: hidden;
+      }
+      #game-container {
+        height: 100svh;
+      }
+    }
+    @media (pointer: coarse) {
+      #mobile-controls {
+        display: grid;
+      }
+      .hint {
+        bottom: 110px;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="game-container"></div>
-  <div class="hint">Управление: стрелки / WASD</div>
+  <div class="hint">Управление: стрелки / WASD / кнопки</div>
+  <div id="mobile-controls" aria-label="Мобильное управление">
+    <button class="up" data-direction="up">▲</button>
+    <button class="left" data-direction="left">◀</button>
+    <button class="right" data-direction="right">▶</button>
+    <button class="down" data-direction="down">▼</button>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
   <script>
     const config = {
@@ -62,6 +118,7 @@
     let rescueFound = false;
     let timerText;
     let backgroundLayer;
+    const mobileState = { left: false, right: false, up: false, down: false };
 
     const scenario = [
       {
@@ -253,6 +310,7 @@
       this.physics.add.overlap(duck, itemsGroup, handleCollect, null, this);
       this.physics.add.overlap(duck, hazardGroup, handleHazard, null, this);
 
+      setupMobileControls();
       setupStep.call(this, 0);
     }
 
@@ -260,14 +318,14 @@
       const speed = 200;
       duck.body.setVelocity(0);
       const keys = cursors;
-      if (keys.left.isDown || this.input.keyboard.keys[65]?.isDown) {
+      if (keys.left.isDown || this.input.keyboard.keys[65]?.isDown || mobileState.left) {
         duck.body.setVelocityX(-speed);
-      } else if (keys.right.isDown || this.input.keyboard.keys[68]?.isDown) {
+      } else if (keys.right.isDown || this.input.keyboard.keys[68]?.isDown || mobileState.right) {
         duck.body.setVelocityX(speed);
       }
-      if (keys.up.isDown || this.input.keyboard.keys[87]?.isDown) {
+      if (keys.up.isDown || this.input.keyboard.keys[87]?.isDown || mobileState.up) {
         duck.body.setVelocityY(-speed);
-      } else if (keys.down.isDown || this.input.keyboard.keys[83]?.isDown) {
+      } else if (keys.down.isDown || this.input.keyboard.keys[83]?.isDown || mobileState.down) {
         duck.body.setVelocityY(speed);
       }
 
@@ -311,6 +369,32 @@
           }
         });
       }
+    }
+
+    function setupMobileControls() {
+      const controls = document.getElementById('mobile-controls');
+      if (!controls) {
+        return;
+      }
+
+      const setDirection = (direction, isActive) => {
+        mobileState[direction] = isActive;
+      };
+
+      controls.querySelectorAll('button').forEach((button) => {
+        const direction = button.dataset.direction;
+        button.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          setDirection(direction, true);
+        });
+        const stop = (event) => {
+          event.preventDefault();
+          setDirection(direction, false);
+        };
+        button.addEventListener('pointerup', stop);
+        button.addEventListener('pointerleave', stop);
+        button.addEventListener('pointercancel', stop);
+      });
     }
 
     function setupStep(index) {
